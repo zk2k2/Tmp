@@ -1,0 +1,13 @@
+      machine_info() {
+        local n; n=$(sysctl -n hw.ncpu)
+        echo "CPU:     $(sysctl -n machdep.cpu.brand_string)"
+        echo "Cores:   $n ($(sysctl -n hw.perflevel0.physicalcpu 2>/dev/null || echo '?') performance / $(sysctl -n hw.perflevel1.physicalcpu 2>/dev/null || echo '?') efficiency)"
+        echo "Memory:  $(( $(sysctl -n hw.memsize) / 1073741824 )) GB"
+        echo "macOS:   $(sw_vers -productVersion) / $(xcodebuild -version | head -1)"
+        echo "Disk:    $(df -h . | tail -1 | awk '{print $4" free of "$2}')"
+        echo "Load:    $(sysctl -n vm.loadavg)"
+        /usr/bin/time -p sh -c 'dd if=/dev/zero bs=1m count=1024 2>/dev/null | shasum -a 256 >/dev/null' 2>&1 | awk '/^real/{print "Bench 1 core   (hash 1 GB):          "$2" s"}'
+        /usr/bin/time -p sh -c "seq $n | xargs -P $n -I{} sh -c 'dd if=/dev/zero bs=1m count=1024 2>/dev/null | shasum -a 256 >/dev/null'" 2>&1 | awk -v n="$n" '/^real/{print "Bench all cores (hash 1 GB x "n"):   "$2" s"}'
+        /usr/bin/time -p sh -c 'dd if=/dev/zero of=bench.tmp bs=1m count=2048 2>/dev/null; sync' 2>&1 | awk '/^real/{print "Bench disk     (write 2 GB):         "$2" s"}'
+        rm -f bench.tmp
+      }
